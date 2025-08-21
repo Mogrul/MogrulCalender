@@ -14,6 +14,8 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 
 import static gb.mogrul.calendar.MogrulCalendar.*;
 import static gb.mogrul.calendar.handlers.MainDataHandler.daysPassedFile;
@@ -59,18 +61,29 @@ public class CalenderDataHandler {
     }
 
     public static DateResult getDate() {
+        int startingMonthIndex = Config.startingMonth - 1;  // Index of the starting month (0-based, so 4 corresponds to the 5th month)
         int totalDays = MemoryData.daysPassed + (Config.startingDays - 1);
-        int daysPerYear = Config.calenderMonths.values().stream().mapToInt(m -> m.dayCount).sum();
+
+        // Adjust for the starting month
+        int daysBeforeStartingMonth = 0;
+        List<MonthData> monthsList = new ArrayList<>(Config.calenderMonths.values());
+        for (int i = 0; i < startingMonthIndex; i++) {
+            daysBeforeStartingMonth += monthsList.get(i).dayCount;
+        }
+
+        totalDays += daysBeforeStartingMonth;  // Add the days before the starting month
+
+        int daysPerYear = monthsList.stream().mapToInt(m -> m.dayCount).sum();
         int year = Config.startingYear + (totalDays / daysPerYear);
 
         int dayOfYear = totalDays % daysPerYear;
 
         MonthData currentMonth = null;
-        int dayOfMonth = 0;
+        int dayOfMonth = 1;
 
-        for (MonthData month : Config.calenderMonths.values()) {
+        for (MonthData month : monthsList) {
             if (dayOfYear < month.dayCount) {
-                dayOfMonth = dayOfYear;
+                dayOfMonth = dayOfYear + 1;
                 currentMonth = month;
                 break;
             } else {
@@ -80,8 +93,7 @@ public class CalenderDataHandler {
 
         // Fallback in case map iteration order is wrong
         if (currentMonth == null) {
-            currentMonth = Config.calenderMonths.values().iterator().next();
-            dayOfMonth = 1;
+            currentMonth = monthsList.getFirst();
         }
 
         return new DateResult(year, currentMonth.name, dayOfMonth);
